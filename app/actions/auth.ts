@@ -13,8 +13,8 @@ export async function signUp(formData: FormData) {
     return { error: "All fields are required" }
   }
 
-  if (password.length < 10) {
-    return { error: "Password must be at least 10 characters" }
+  if (password.length < 6) {
+    return { error: "Password must be at least 6 characters" }
   }
 
   const existing = await sql`SELECT id FROM users WHERE email = ${email}`
@@ -36,7 +36,7 @@ export async function signUp(formData: FormData) {
   if (user.role === "admin") {
     redirect("/admin")
   }
-  redirect("/scholium")
+  redirect("/scholiums")
 }
 
 export async function signIn(formData: FormData) {
@@ -67,7 +67,7 @@ export async function signIn(formData: FormData) {
   if (user.role === "admin") {
     redirect("/admin")
   }
-  redirect("/scholium")
+  redirect("/scholiums")
 }
 
 export async function signOut() {
