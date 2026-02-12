@@ -230,7 +230,7 @@ export function HomeworkList({ homework, subjects, canAddHomework }: HomeworkLis
           open={!!viewingAttachments}
           onOpenChange={(open) => !open && setViewingAttachments(null)}
           homework={viewingAttachments}
-          isAdmin={isAdmin}
+          canAddHomework
         />
       )}
     </div>
