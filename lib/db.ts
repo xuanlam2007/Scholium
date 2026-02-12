@@ -3,7 +3,7 @@ import { neon, type NeonQueryFunction } from "@neondatabase/serverless"
 const _sql: NeonQueryFunction<false, false> | null = null
 
 function createSql() {
-  const connectionString = process.env.DATABASE_URL
+  const connectionString = process.env.SCHOLIUM_DATABASE_URL
   if (!connectionString) {
     throw new Error("DATABASE_URL environment variable is not set")
   }

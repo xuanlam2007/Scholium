@@ -55,15 +55,16 @@ export default function ScholiumsPage() {
     for (const task of data) {
       const details = await getScholiumDetails(task.id)
       if (details.success && details.data) {
+        const detailsData = details.data
         setScholiumDetails((prev) => ({
           ...prev,
           [task.id]: {
             id: task.id,
             name: task.name,
             created_at: task.created_at,
-            accessId: details.data.accessId,
-            isHost: details.data.isHost,
-            memberCount: details.data.memberCount,
+            accessId: detailsData.accessId,
+            isHost: detailsData.isHost,
+            memberCount: detailsData.memberCount,
           },
         }))
       }
