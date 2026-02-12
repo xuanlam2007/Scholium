@@ -3,7 +3,7 @@ import { neon, type NeonQueryFunction } from "@neondatabase/serverless"
 const _sql: NeonQueryFunction<false, false> | null = null
 
 function createSql() {
-  const connectionString = process.env.SCHOLIUM_DATABASE_URL
+  const connectionString = process.env.DATABASE_URL
   if (!connectionString) {
     throw new Error("DATABASE_URL environment variable is not set")
   }
@@ -20,6 +20,7 @@ export type User = {
   email: string
   name: string
   role: "admin" | "student"
+  email_verified: boolean
   created_at: string
 }
 
@@ -51,9 +52,8 @@ export const HOMEWORK_TYPES = [
   "Workbook",
   "Research Paper",
   "Presentation",
-  "Report",
-  "Critique",
-  "Summary",
+  "Lab Report",
+  "Problem Set",
   "Reading Assignment",
   "Project",
   "Quiz Prep",
