@@ -55,19 +55,29 @@ export async function joinScholium(accessId: string): Promise<{ success: boolean
     const user = await getSession()
     if (!user) return { success: false, error: 'Not authenticated' }
 
-    const encryptedId = encryptAccessId(accessId)
-
-    const result = await sql`
+    // Get all scholiums and decrypt access IDs to find match
+    const allScholiums = await sql`
       SELECT id, user_id, name, encrypted_access_id, created_at, updated_at
       FROM scholiums
-      WHERE encrypted_access_id = ${encryptedId}
     `
 
-    if (result.length === 0) {
-      return { success: false, error: 'Scholium not found' }
+    let scholium: Scholium | null = null
+    for (const s of allScholiums) {
+      try {
+        const decryptedId = decryptAccessId((s as any).encrypted_access_id)
+        if (decryptedId === accessId.trim()) {
+          scholium = s as Scholium
+          break
+        }
+      } catch (e) {
+        // Skip invalid encrypted IDs
+        continue
+      }
     }
 
-    const scholium = result[0] as Scholium
+    if (!scholium) {
+      return { success: false, error: 'Invalid access ID' }
+    }
 
     // Check if user is already a member
     const existing = await sql`
@@ -87,10 +97,10 @@ export async function joinScholium(accessId: string): Promise<{ success: boolean
       return { success: true, data: scholium }
     }
 
-    // Add user as member
+    // Add user as member with default permissions
     await sql`
-      INSERT INTO scholium_members (scholium_id, user_id, is_host)
-      VALUES (${scholium.id}, ${user.id}, false)
+      INSERT INTO scholium_members (scholium_id, user_id, is_host, can_add_homework, can_create_subject)
+      VALUES (${scholium.id}, ${user.id}, false, false, false)
     `
 
     // Set as current scholium
@@ -129,7 +139,6 @@ export async function getUserScholiums(): Promise<Scholium[]> {
   } catch (error) {
     console.error('[v0] Error fetching scholiums:', error)
     return []
-    
   }
 }
 
@@ -152,15 +161,12 @@ export async function getScholiumMembers(scholiumId: number): Promise<(ScholiumM
     return result as (ScholiumMember & { user_name: string; user_email: string })[]
   } catch (error) {
     console.error('[v0] Error fetching members:', error)
-
     return []
-
-
   }
 }
 
 /**
- * Renew scholium access ID (only host)
+ * Renew scholium access ID (only admin can do this)
  */
 export async function renewScholiumAccessId(scholiumId: number): Promise<{ success: boolean; newAccessId?: string; error?: string }> {
   try {
@@ -189,7 +195,6 @@ export async function renewScholiumAccessId(scholiumId: number): Promise<{ succe
     return { success: true, newAccessId }
   } catch (error) {
     console.error('[v0] Error renewing access ID:', error)
-
     return { success: false, error: 'Failed to renew access ID' }
   }
 }
@@ -202,10 +207,8 @@ export async function getCurrentScholiumId(): Promise<number | null> {
     const cookieStore = await cookies()
     const id = cookieStore.get('current_scholium_id')?.value
     return id ? parseInt(id) : null
-
   } catch (error) {
     return null
-
   }
 }
 
@@ -218,7 +221,6 @@ export async function setCurrentScholium(scholiumId: number): Promise<void> {
     if (!user) return
 
     // Verify user is a member
-
     const member = await sql`
       SELECT id FROM scholium_members
       WHERE scholium_id = ${scholiumId} AND user_id = ${user.id}
@@ -226,16 +228,12 @@ export async function setCurrentScholium(scholiumId: number): Promise<void> {
 
     if (member.length === 0) return
 
-
     const cookieStore = await cookies()
     cookieStore.set('current_scholium_id', scholiumId.toString(), {
       maxAge: 7 * 24 * 60 * 60,
       httpOnly: true,
-
       secure: true,
-
       sameSite: 'lax',
-
     })
   } catch (error) {
     console.error('[v0] Error setting current scholium:', error)
@@ -303,7 +301,6 @@ export async function getScholiumDetails(scholiumId: number): Promise<{
 /**
  * Update member permissions
  */
-
 export async function updateMemberPermissions(
   scholiumId: number,
   memberId: number,
@@ -439,9 +436,8 @@ export async function updateMemberPermissionsAsHost(
 }
 
 /**
- * Update time slots
+ * Update time slots configuration
  */
-
 export async function updateTimeSlots(
   scholiumId: number,
   slots: Array<{ start: string; end: string }>
@@ -451,7 +447,6 @@ export async function updateTimeSlots(
     if (!user) return { success: false, error: 'Not authenticated' }
 
     // Check if user is host
-
     const hostCheck = await sql`
       SELECT id FROM scholium_members
       WHERE scholium_id = ${scholiumId} AND user_id = ${user.id} AND is_host = true
