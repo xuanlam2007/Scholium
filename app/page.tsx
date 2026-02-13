@@ -9,7 +9,12 @@ export default async function HomePage() {
   const user = await getSession()
 
   if (user) {
-    redirect("/dashboard")
+    // Redirect based on role
+    if (user.role === 'admin') {
+      redirect('/admin')
+    } else {
+      redirect('/dashboard')
+    }
   }
 
   return (

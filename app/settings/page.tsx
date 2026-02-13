@@ -10,6 +10,10 @@ export default async function SettingsPage() {
     redirect('/login')
   }
 
+  if (user.role === 'admin') {
+    redirect('/admin')
+  }
+
   const scholiumId = await getCurrentScholiumId()
   
   if (!scholiumId) {
