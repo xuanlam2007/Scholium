@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import type { Homework, Subject } from "@/lib/db"
 import { HOMEWORK_TYPES } from "@/lib/db"
 import { updateHomework } from "@/app/actions/homework"
@@ -29,6 +30,7 @@ interface EditHomeworkDialogProps {
 }
 
 export function EditHomeworkDialog({ open, onOpenChange, homework, subjects, scholiumId }: EditHomeworkDialogProps) {
+  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [timeSlots, setTimeSlots] = useState<Array<{ start: string; end: string }>>([])
@@ -71,6 +73,7 @@ export function EditHomeworkDialog({ open, onOpenChange, homework, subjects, sch
       if (result?.error) {
         setError(result.error)
       } else {
+        router.refresh()
         onOpenChange(false)
       }
     } finally {

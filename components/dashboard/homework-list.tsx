@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import type { Homework, Subject } from "@/lib/db"
 import { toggleHomeworkCompletion, deleteHomework } from "@/app/actions/homework"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -21,6 +22,7 @@ interface HomeworkListProps {
 }
 
 export function HomeworkList({ homework, subjects, canAddHomework, scholiumId }: HomeworkListProps) {
+  const router = useRouter()
   const [editingHomework, setEditingHomework] = useState<Homework | null>(null)
   const [viewingAttachments, setViewingAttachments] = useState<Homework | null>(null)
 
@@ -29,17 +31,21 @@ export function HomeworkList({ homework, subjects, canAddHomework, scholiumId }:
 
   const groupedHomework = homework.reduce(
     (acc, hw) => {
-      const dueDate = new Date(hw.due_date)
-      dueDate.setHours(0, 0, 0, 0)
-
       if (hw.completed) {
         acc.completed.push(hw)
-      } else if (dueDate < today) {
-        acc.overdue.push(hw)
-      } else if (dueDate.getTime() === today.getTime()) {
-        acc.today.push(hw)
       } else {
-        acc.upcoming.push(hw)
+        const dueDate = new Date(hw.due_date)
+        dueDate.setHours(0, 0, 0, 0)
+        const tomorrow = new Date(today)
+        tomorrow.setDate(tomorrow.getDate() + 1)
+
+        if (dueDate < today) {
+          acc.overdue.push(hw)
+        } else if (dueDate.getTime() === today.getTime()) {
+          acc.today.push(hw)
+        } else {
+          acc.upcoming.push(hw)
+        }
       }
       return acc
     },
@@ -48,11 +54,13 @@ export function HomeworkList({ homework, subjects, canAddHomework, scholiumId }:
 
   async function handleToggleComplete(id: number) {
     await toggleHomeworkCompletion(id)
+    router.refresh()
   }
 
   async function handleDelete(id: number) {
     if (confirm("Are you sure you want to delete this homework?")) {
       await deleteHomework(id)
+      router.refresh()
     }
   }
 

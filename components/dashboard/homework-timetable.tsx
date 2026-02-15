@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import type { Homework, Subject } from "@/lib/db"
 import { toggleHomeworkCompletion, deleteHomework } from "@/app/actions/homework"
 import { getTimeSlots, updateTimeSlots } from "@/app/actions/scholium"
@@ -32,6 +33,7 @@ const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
 const DAYS_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 export function HomeworkTimetable({ homework: initialHomework, subjects, canAddHomework, isHost, scholiumId }: HomeworkTimetableProps) {
+  const router = useRouter()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [editingHomework, setEditingHomework] = useState<Homework | null>(null)
   const [homework, setHomework] = useState(initialHomework)
@@ -248,19 +250,14 @@ export function HomeworkTimetable({ homework: initialHomework, subjects, canAddH
   }
 
   async function handleToggleComplete(id: number) {
-    // Optimistic update
-    const updatedHomework = homework.map((hw) =>
-      hw.id === id ? { ...hw, completed: !hw.completed } : hw,
-    )
-    setHomework(updatedHomework)
-    
-    // Call server action
     await toggleHomeworkCompletion(id)
+    router.refresh()
   }
 
   async function handleDelete(id: number) {
     if (confirm("Are you sure you want to delete this homework?")) {
       await deleteHomework(id)
+      router.refresh()
     }
   }
 
@@ -608,9 +605,9 @@ function HomeworkCard({ homework, onToggleComplete, onEdit, onDelete, canAddHome
       )}
 
       {/* Homework type tag */}
-                {hw.homework_type && (
-                  <Badge variant="outline" className="text-xs">
-                    {hw.homework_type.charAt(0).toUpperCase() + hw.homework_type.slice(1)}
+      {hw.homework_type && (
+        <Badge variant="outline" className="text-xs">
+          {hw.homework_type.charAt(0).toUpperCase() + hw.homework_type.slice(1)}
         </Badge>
       )}
     </div>

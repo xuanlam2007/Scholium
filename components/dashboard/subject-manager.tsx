@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createSubject, deleteSubject } from '@/app/actions/homework'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -19,6 +20,7 @@ interface SubjectManagerProps {
 }
 
 export function SubjectManager({ subjects, canManageSubjects, onSubjectsChange }: SubjectManagerProps) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [newSubjectName, setNewSubjectName] = useState('')
   const [selectedColor, setSelectedColor] = useState(COLORS[0])
@@ -35,6 +37,7 @@ export function SubjectManager({ subjects, canManageSubjects, onSubjectsChange }
     if (result.success) {
       setNewSubjectName('')
       setSelectedColor(COLORS[0])
+      router.refresh()
       onSubjectsChange?.()
     }
   }
@@ -45,6 +48,7 @@ export function SubjectManager({ subjects, canManageSubjects, onSubjectsChange }
     setDeleting(null)
 
     if (result.success) {
+      router.refresh()
       onSubjectsChange?.()
     }
   }
