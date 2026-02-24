@@ -41,6 +41,7 @@ export default function ScholiumsPage() {
   const [error, setError] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [renewingId, setRenewingId] = useState<number | null>(null)
+  const [pendingScholiumName, setPendingScholiumName] = useState<string | null>(null)
 
   useEffect(() => {
     loadScholiums()
@@ -102,6 +103,9 @@ export default function ScholiumsPage() {
       setAccessId('')
       await loadScholiums()
       router.push('/dashboard')
+    } else if (result.error === 'WAITING_ROOM' && result.data) {
+      setAccessId('')
+      setPendingScholiumName(result.data.name)
     } else {
       setError(result.error || 'Failed to join scholium')
     }

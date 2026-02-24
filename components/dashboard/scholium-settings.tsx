@@ -44,6 +44,8 @@ import {
   clearAllScholiumData,
   updateDefaultPermissions,
   getDefaultPermissions,
+  updateWaitingRoomEnabled,
+  getWaitingRoom,
 } from '@/app/actions/scholium'
 import { useToast } from '@/hooks/use-toast'
 import { Switch } from '@/components/ui/switch'
@@ -84,10 +86,13 @@ export function ScholiumSettings({
   const [canAddHomework, setCanAddHomework] = useState(true)
   const [canCreateSubject, setCanCreateSubject] = useState(true)
   const [permissionsLoading, setPermissionsLoading] = useState(true)
+  const [waitingRoomEnabled, setWaitingRoomEnabled] = useState(false)
+  const [waitingRoomLoading, setWaitingRoomLoading] = useState(true)
 
   useEffect(() => {
     if (isHost) {
       loadDefaultPermissions()
+      loadWaitingRoomSetting()
     }
   }, [scholiumId, isHost])
 
@@ -99,6 +104,15 @@ export function ScholiumSettings({
       setCanCreateSubject(result.data.canCreateSubject)
     }
     setPermissionsLoading(false)
+  }
+
+  async function loadWaitingRoomSetting() {
+    setWaitingRoomLoading(true)
+    const result = await getWaitingRoom(scholiumId)
+    if (result.success && result.data) {
+      setWaitingRoomEnabled(result.data.enabled)
+    }
+    setWaitingRoomLoading(false)
   }
 
   const handleCopyAccessId = async () => {
@@ -224,6 +238,17 @@ export function ScholiumSettings({
       })
     }
     setLoading(false)
+  }
+
+  const handleToggleWaitingRoom = async (value: boolean) => {
+    setWaitingRoomEnabled(value)
+    const result = await updateWaitingRoomEnabled(scholiumId, value)
+    if (result.success) {
+      toast({ title: value ? 'Waiting room enabled' : 'Waiting room disabled' })
+    } else {
+      setWaitingRoomEnabled(!value)
+      toast({ title: 'Error', description: result.error, variant: 'destructive' })
+    }
   }
 
   const handleUpdatePermission = async (type: 'homework' | 'subject', value: boolean) => {
@@ -374,6 +399,27 @@ export function ScholiumSettings({
                 <p className="text-xs text-muted-foreground">
                   Set default permissions for new members joining the scholium
                 </p>
+              </div>
+
+              {/* Waiting Room Section */}
+              <div className="space-y-3 pt-2 border-t">
+                <h4 className="text-sm font-semibold text-foreground">Access Control</h4>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="waiting-room" className="text-sm font-normal">
+                      Waiting room
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      New members must be approved by host or co-host before joining
+                    </p>
+                  </div>
+                  <Switch
+                    id="waiting-room"
+                    checked={waitingRoomEnabled}
+                    onCheckedChange={handleToggleWaitingRoom}
+                    disabled={waitingRoomLoading}
+                  />
+                </div>
               </div>
 
               {/* Clear Data Section */}
