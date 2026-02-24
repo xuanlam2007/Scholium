@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { getSession } from "@/lib/auth"
 import { getHomework, getSubjects, getUpcomingDeadlines } from "@/app/actions/homework"
-import { getCurrentScholiumId, getScholiumMembers } from "@/app/actions/scholium"
+import { getCurrentScholiumId, getScholiumMembers, getTimeSlots } from "@/app/actions/scholium"
 import { DashboardHeader } from "@/components/dashboard/header"
 import { HomeworkContent } from "@/components/dashboard/homework-content"
 import { UpcomingReminders } from "@/components/dashboard/upcoming-reminders"
@@ -26,11 +26,12 @@ export default async function DashboardPage() {
     redirect("/scholiums")
   }
 
-  const [homework, subjects, upcomingDeadlines, members] = await Promise.all([
+  const [homework, subjects, upcomingDeadlines, members, timeSlots] = await Promise.all([
     getHomework(),
     getSubjects(),
     getUpcomingDeadlines(),
     getScholiumMembers(scholiumId),
+    getTimeSlots(scholiumId),
   ])
 
   // Check if user is a member and if they're a host
@@ -54,6 +55,7 @@ export default async function DashboardPage() {
               scholiumId={scholiumId}
               currentUserId={user.id}
               members={members}
+              initialTimeSlots={timeSlots}
             />
           </div>
           <aside className="space-y-6">

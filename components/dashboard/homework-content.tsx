@@ -18,6 +18,7 @@ interface HomeworkContentProps {
   currentUserId: string
   members: (ScholiumMember & { user_name: string; user_email: string })[]
   onSubjectsChange?: () => void
+  initialTimeSlots?: Array<{ start: string; end: string }>
 }
 
 export function HomeworkContent({ 
@@ -30,6 +31,7 @@ export function HomeworkContent({
   currentUserId,
   members,
   onSubjectsChange,
+  initialTimeSlots,
 }: HomeworkContentProps) {
   useRealtimeRefresh(scholiumId, currentUserId)
 
@@ -78,6 +80,7 @@ export function HomeworkContent({
           canAddHomework={canAddHomework}
           isHost={isHost}
           scholiumId={scholiumId}
+          initialTimeSlots={initialTimeSlots}
         />
       )}
     </div>
