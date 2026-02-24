@@ -23,10 +23,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { BookOpen, LogOut, Settings, Shield, Grid3X3, Copy, Loader2, RotateCw } from "lucide-react"
+import { BookOpen, LogOut, Settings, Shield, Grid3X3, Copy, Loader2, RotateCw, Sun, Moon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { ScholiumSettings } from "@/components/dashboard/scholium-settings"
+import { useTheme } from "next-themes"
 
 interface ScholiumDetails {
   name: string;
@@ -46,6 +47,7 @@ export function DashboardHeader({ user, scholiumId }: DashboardHeaderProps) {
   const [openSettingsDialog, setOpenSettingsDialog] = useState(false)
   const [renewing, setRenewing] = useState(false)
   const { toast } = useToast()
+  const { theme, setTheme } = useTheme()
 
   useEffect(() => {
     loadScholiumDetails()
@@ -196,6 +198,19 @@ export function DashboardHeader({ user, scholiumId }: DashboardHeaderProps) {
               </Button>
             </Link>
           )}
+
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 bg-transparent"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            title="Toggle theme"
+          >
+            <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            <span className="sr-only">Toggle theme</span>
+          </Button>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-9 w-9 rounded-full">
