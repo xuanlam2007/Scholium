@@ -76,22 +76,22 @@ export async function joinScholium(accessId: string): Promise<{ success: boolean
 
     const supabase = await createClient()
 
-    // Get all scholiums and decrypt access IDs to find match
+    // Get all scholiums with default permissions and decrypt access IDs to find match
     const { data: allScholiums, error } = await supabase
       .from('scholiums')
-      .select('*')
+      .select('*, default_can_add_homework, default_can_create_subject')
 
     if (error) {
       console.error('Error fetching scholiums:', error)
       return { success: false, error: 'Failed to fetch scholiums' }
     }
 
-    let scholium: Scholium | null = null
+    let scholium: any = null
     for (const s of allScholiums || []) {
       try {
         const decryptedId = decryptAccessId(s.encrypted_access_id)
         if (decryptedId === accessId.trim()) {
-          scholium = s as Scholium
+          scholium = s
           break
         }
       } catch (e) {
@@ -122,18 +122,18 @@ export async function joinScholium(accessId: string): Promise<{ success: boolean
         sameSite: 'lax',
       })
 
-      return { success: true, data: scholium }
+      return { success: true, data: scholium as Scholium }
     }
 
-    // Add user as member with default permissions
+    // Add user as member with scholium's default permissions
     const { error: memberError } = await supabase
       .from('scholium_members')
       .insert({
         scholium_id: scholium.id,
         user_id: user.id,
         is_host: false,
-        can_add_homework: false,
-        can_create_subject: false,
+        can_add_homework: scholium.default_can_add_homework ?? true,
+        can_create_subject: scholium.default_can_create_subject ?? true,
       })
 
     if (memberError) {
@@ -932,4 +932,160 @@ async function isUserHost(supabase: any, scholiumId: number, userId: string): Pr
     .single()
 
   return !!data
+}
+
+/**
+ * Rename a scholium (host only)
+ */
+export async function renameScholium(scholiumId: number, newName: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await getSession()
+    if (!user) return { success: false, error: 'Not authenticated' }
+
+    const supabase = await createClient()
+
+    // Check if user is host
+    if (!await isUserHost(supabase, scholiumId, user.id)) {
+      return { success: false, error: 'Only hosts can rename the scholium' }
+    }
+
+    const { error } = await supabase
+      .from('scholiums')
+      .update({ name: newName.trim() })
+      .eq('id', scholiumId)
+
+    if (error) {
+      console.error('Error renaming scholium:', error)
+      return { success: false, error: 'Failed to rename scholium' }
+    }
+
+    revalidatePath('/dashboard')
+    return { success: true }
+  } catch (error) {
+    console.error('Error renaming scholium:', error)
+    return { success: false, error: 'Failed to rename scholium' }
+  }
+}
+
+/**
+ * Clear all homework and subjects from a scholium (host only)
+ */
+export async function clearAllScholiumData(scholiumId: number): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await getSession()
+    if (!user) return { success: false, error: 'Not authenticated' }
+
+    const supabase = await createClient()
+
+    // Check if user is host
+    if (!await isUserHost(supabase, scholiumId, user.id)) {
+      return { success: false, error: 'Only hosts can clear scholium data' }
+    }
+
+    // Delete all homework (attachments will cascade)
+    const { error: homeworkError } = await supabase
+      .from('homework')
+      .delete()
+      .eq('scholium_id', scholiumId)
+
+    if (homeworkError) {
+      console.error('Error deleting homework:', homeworkError)
+      return { success: false, error: 'Failed to delete homework' }
+    }
+
+    // Delete all subjects
+    const { error: subjectsError } = await supabase
+      .from('subjects')
+      .delete()
+      .eq('scholium_id', scholiumId)
+
+    if (subjectsError) {
+      console.error('Error deleting subjects:', subjectsError)
+      return { success: false, error: 'Failed to delete subjects' }
+    }
+
+    revalidatePath('/dashboard')
+    return { success: true }
+  } catch (error) {
+    console.error('Error clearing scholium data:', error)
+    return { success: false, error: 'Failed to clear scholium data' }
+  }
+}
+
+/**
+ * Update default join permissions for a scholium (host only)
+ */
+export async function updateDefaultPermissions(
+  scholiumId: number,
+  canAddHomework: boolean,
+  canCreateSubject: boolean
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await getSession()
+    if (!user) return { success: false, error: 'Not authenticated' }
+
+    const supabase = await createClient()
+
+    // Check if user is host
+    if (!await isUserHost(supabase, scholiumId, user.id)) {
+      return { success: false, error: 'Only hosts can update default permissions' }
+    }
+
+    const { error } = await supabase
+      .from('scholiums')
+      .update({
+        default_can_add_homework: canAddHomework,
+        default_can_create_subject: canCreateSubject,
+      })
+      .eq('id', scholiumId)
+
+    if (error) {
+      console.error('Error updating default permissions:', error)
+      return { success: false, error: 'Failed to update default permissions' }
+    }
+
+    revalidatePath('/dashboard')
+    return { success: true }
+  } catch (error) {
+    console.error('Error updating default permissions:', error)
+    return { success: false, error: 'Failed to update default permissions' }
+  }
+}
+
+/**
+ * Get default permissions for a scholium
+ */
+export async function getDefaultPermissions(scholiumId: number): Promise<{
+  success: boolean
+  data?: { canAddHomework: boolean; canCreateSubject: boolean }
+  error?: string
+}> {
+  try {
+    const user = await getSession()
+    if (!user) return { success: false, error: 'Not authenticated' }
+
+    const supabase = await createClient()
+
+    const { data, error } = await supabase
+      .from('scholiums')
+      .select('default_can_add_homework, default_can_create_subject')
+      .eq('id', scholiumId)
+      .single()
+
+    if (error) {
+      console.error('Error fetching default permissions:', error)
+      return { success: false, error: 'Failed to fetch default permissions' }
+    }
+
+    return {
+      success: true,
+      data: {
+        canAddHomework: data.default_can_add_homework,
+        canCreateSubject: data.default_can_create_subject,
+      },
+    }
+  } catch (error) {
+    console.error('Error fetching default permissions:', error)
+    return { success: false, error: 'Failed to fetch default permissions' }
+  }
 }
