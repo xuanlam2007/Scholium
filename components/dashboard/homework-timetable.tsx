@@ -27,17 +27,18 @@ interface HomeworkTimetableProps {
   canAddHomework: boolean
   isHost: boolean
   scholiumId: number
+  initialTimeSlots?: Array<{ start: string; end: string }>
 }
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 const DAYS_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-export function HomeworkTimetable({ homework: initialHomework, subjects, canAddHomework, isHost, scholiumId }: HomeworkTimetableProps) {
+export function HomeworkTimetable({ homework: initialHomework, subjects, canAddHomework, isHost, scholiumId, initialTimeSlots }: HomeworkTimetableProps) {
   const router = useRouter()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [editingHomework, setEditingHomework] = useState<Homework | null>(null)
   const [homework, setHomework] = useState(initialHomework)
-  const [timeSlots, setTimeSlots] = useState<Array<{ start: string; end: string }>>([])
+  const [timeSlots, setTimeSlots] = useState<Array<{ start: string; end: string }>>(initialTimeSlots ?? [])
   const [hoveredSlot, setHoveredSlot] = useState<number | null>(null)
   const [editingField, setEditingField] = useState<{ index: number; field: 'start' | 'end'; previousValue: string } | null>(null)
   const [editingSlots, setEditingSlots] = useState(false)
@@ -49,9 +50,11 @@ export function HomeworkTimetable({ homework: initialHomework, subjects, canAddH
     setHomework(initialHomework)
   }, [initialHomework])
 
-  // Load time slots immediately on mount
+  // Only fetch time slots if not provided from the server
   useEffect(() => {
-    loadTimeSlots()
+    if (!initialTimeSlots) {
+      loadTimeSlots()
+    }
   }, [scholiumId])
 
   async function loadTimeSlots() {
