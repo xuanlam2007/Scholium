@@ -7,6 +7,7 @@ import { HomeworkContent } from "@/components/dashboard/homework-content"
 import { UpcomingReminders } from "@/components/dashboard/upcoming-reminders"
 // ParticipantsSection with isHost prop for member management
 import { ParticipantsSection } from "@/components/dashboard/participants-section"
+import { WaitingRoomSection } from "@/components/dashboard/waiting-room-section"
 
 export const dynamic = 'force-dynamic'
 
@@ -60,6 +61,10 @@ export default async function DashboardPage() {
           </div>
           <aside className="space-y-6">
             <UpcomingReminders deadlines={upcomingDeadlines} />
+            <WaitingRoomSection
+              scholiumId={scholiumId}
+              isHostOrCohost={isHost || !!((userMember as any)?.is_cohost)}
+            />
             <ParticipantsSection 
               scholiumId={scholiumId}
               members={members} 

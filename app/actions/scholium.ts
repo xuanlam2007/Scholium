@@ -76,10 +76,10 @@ export async function joinScholium(accessId: string): Promise<{ success: boolean
 
     const supabase = await createClient()
 
-    // Get all scholiums with default permissions and decrypt access IDs to find match
+    // Get all scholiums with default permissions and waiting room setting
     const { data: allScholiums, error } = await supabase
       .from('scholiums')
-      .select('*, default_can_add_homework, default_can_create_subject')
+      .select('*, default_can_add_homework, default_can_create_subject, waiting_room_enabled')
 
     if (error) {
       console.error('Error fetching scholiums:', error)
@@ -123,6 +123,27 @@ export async function joinScholium(accessId: string): Promise<{ success: boolean
       })
 
       return { success: true, data: scholium as Scholium }
+    }
+
+    // If waiting room is enabled, place user in waiting room instead
+    if (scholium.waiting_room_enabled) {
+      // Check if already pending
+      const { data: alreadyPending } = await supabase
+        .from('waiting_room')
+        .select('id')
+        .eq('scholium_id', scholium.id)
+        .eq('user_id', user.id)
+        .single()
+
+      if (!alreadyPending) {
+        await supabase.from('waiting_room').insert({
+          scholium_id: scholium.id,
+          user_id: user.id,
+          user_name: user.name || user.email || 'Unknown',
+          user_email: user.email || '',
+        })
+      }
+      return { success: false, error: 'WAITING_ROOM', data: scholium as Scholium }
     }
 
     // Add user as member with scholium's default permissions
@@ -1087,5 +1108,237 @@ export async function getDefaultPermissions(scholiumId: number): Promise<{
   } catch (error) {
     console.error('Error fetching default permissions:', error)
     return { success: false, error: 'Failed to fetch default permissions' }
+  }
+}
+
+/**
+ * Toggle waiting room
+ */
+export async function updateWaitingRoomEnabled(
+  scholiumId: number,
+  enabled: boolean
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await getSession()
+    if (!user) return { success: false, error: 'Not authenticated' }
+
+    const supabase = await createClient()
+
+    if (!await isUserHost(supabase, scholiumId, user.id)) {
+      return { success: false, error: 'Only hosts can change waiting room settings' }
+    }
+
+    const { error } = await supabase
+      .from('scholiums')
+      .update({ waiting_room_enabled: enabled })
+      .eq('id', scholiumId)
+
+    if (error) return { success: false, error: 'Failed to update waiting room setting' }
+
+    revalidatePath('/dashboard')
+    return { success: true }
+  } catch {
+    return { success: false, error: 'Failed to update waiting room setting' }
+  }
+}
+
+
+export async function getWaitingRoom(scholiumId: number): Promise<{
+  success: boolean
+  data?: { enabled: boolean; pending: { id: number; user_id: string; user_name: string; user_email: string; requested_at: string }[] }
+  error?: string
+}> {
+  try {
+    const user = await getSession()
+    if (!user) return { success: false, error: 'Not authenticated' }
+
+    const supabase = await createClient()
+
+    const [scholiumResult, pendingResult] = await Promise.all([
+      supabase.from('scholiums').select('waiting_room_enabled').eq('id', scholiumId).single(),
+      supabase.from('waiting_room').select('*').eq('scholium_id', scholiumId).order('requested_at', { ascending: true }),
+    ])
+
+    if (scholiumResult.error) return { success: false, error: 'Failed to fetch scholium' }
+
+    return {
+      success: true,
+      data: {
+        enabled: scholiumResult.data.waiting_room_enabled ?? false,
+        pending: pendingResult.data ?? [],
+      },
+    }
+  } catch {
+    return { success: false, error: 'Failed to fetch waiting room' }
+  }
+}
+
+/**
+ * Approve a user from waiting room
+ */
+export async function approveWaitingUser(
+  waitingRoomId: number,
+  scholiumId: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await getSession()
+    if (!user) return { success: false, error: 'Not authenticated' }
+
+    const supabase = await createClient()
+
+    // Check host or cohost
+    const { data: member } = await supabase
+      .from('scholium_members')
+      .select('is_host, is_cohost')
+      .eq('scholium_id', scholiumId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (!member || (!member.is_host && !member.is_cohost)) {
+      return { success: false, error: 'Only hosts and co-hosts can approve members' }
+    }
+
+    // Get the waiting room entry
+    const { data: entry, error: entryError } = await supabase
+      .from('waiting_room')
+      .select('*')
+      .eq('id', waitingRoomId)
+      .single()
+
+    if (entryError || !entry) return { success: false, error: 'Waiting room entry not found' }
+
+    // Get default permissions
+    const { data: scholium } = await supabase
+      .from('scholiums')
+      .select('default_can_add_homework, default_can_create_subject')
+      .eq('id', scholiumId)
+      .single()
+
+    // Add user as member
+    const { error: memberError } = await supabase
+      .from('scholium_members')
+      .insert({
+        scholium_id: scholiumId,
+        user_id: entry.user_id,
+        is_host: false,
+        can_add_homework: scholium?.default_can_add_homework ?? true,
+        can_create_subject: scholium?.default_can_create_subject ?? true,
+      })
+
+    if (memberError) return { success: false, error: 'Failed to add member' }
+
+    // Remove from waiting room
+    await supabase.from('waiting_room').delete().eq('id', waitingRoomId)
+
+    revalidatePath('/dashboard')
+    return { success: true }
+  } catch {
+    return { success: false, error: 'Failed to approve user' }
+  }
+}
+
+/**
+ * Deny a user from the waiting room
+ */
+export async function denyWaitingUser(
+  waitingRoomId: number,
+  scholiumId: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await getSession()
+    if (!user) return { success: false, error: 'Not authenticated' }
+
+    const supabase = await createClient()
+
+    const { data: member } = await supabase
+      .from('scholium_members')
+      .select('is_host, is_cohost')
+      .eq('scholium_id', scholiumId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (!member || (!member.is_host && !member.is_cohost)) {
+      return { success: false, error: 'Only hosts and co-hosts can deny members' }
+    }
+
+    await supabase.from('waiting_room').delete().eq('id', waitingRoomId)
+
+    revalidatePath('/dashboard')
+    return { success: true } 
+
+  } catch {
+    return { success: false, error: 'Failed to deny user' }
+  }
+}
+
+/**
+ * Request to join a scholium 
+ */
+export async function requestToJoinScholium(
+  scholiumId: number,
+  userName: string,
+
+  userEmail: string
+
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await getSession()
+    if (!user) return { success: false, error: 'Not authenticated' }
+
+    const supabase = await createClient()
+
+    // Check if already in waiting room
+    const { data: existing } = await supabase
+      .from('waiting_room')
+      .select('id')
+      .eq('scholium_id', scholiumId)
+      .eq('user_id', user.id)
+      .single()
+
+
+
+    if (existing) return { success: false, error: 'You already have a pending request for this scholium' }
+
+    const { error } = await supabase.from('waiting_room').insert({
+      
+      scholium_id: scholiumId,
+      user_id: user.id,
+      user_name: userName,
+      
+      user_email: userEmail,
+
+    })
+
+    if (error) return { success: false, error: 'Failed to submit join request' }
+
+    return { success: true }
+  } catch {
+    return { success: false, error: 'Failed to submit join request' }
+  }
+}
+
+
+
+export async function checkWaitingRoomStatus(scholiumId: number): Promise<{
+  isPending: boolean
+}> {
+  try {
+    const user = await getSession()
+
+    if (!user) return { isPending: false }
+
+    const supabase = await createClient()
+
+    const { data } = await supabase
+      .from('waiting_room')
+      .select('id')
+      
+      .eq('scholium_id', scholiumId)
+      .eq('user_id', user.id)
+      .single()
+
+    return { isPending: !!data }
+  } catch {
+    return { isPending: false }
   }
 }

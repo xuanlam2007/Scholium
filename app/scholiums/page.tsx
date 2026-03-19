@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { BookOpen, Plus, LogOut, Loader2, Copy, RotateCw, Users } from 'lucide-react'
+import { BookOpen, Plus, LogOut, Loader2, Copy, RotateCw, Users, Clock } from 'lucide-react'
 import { signOut } from '@/app/actions/auth'
 import type { Scholium } from '@/lib/scholium'
 
@@ -41,6 +41,7 @@ export default function ScholiumsPage() {
   const [error, setError] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [renewingId, setRenewingId] = useState<number | null>(null)
+  const [pendingScholiumName, setPendingScholiumName] = useState<string | null>(null)
 
   useEffect(() => {
     loadScholiums()
@@ -102,6 +103,9 @@ export default function ScholiumsPage() {
       setAccessId('')
       await loadScholiums()
       router.push('/dashboard')
+    } else if (result.error === 'WAITING_ROOM' && result.data) {
+      setAccessId('')
+      setPendingScholiumName(result.data.name)
     } else {
       setError(result.error || 'Failed to join scholium')
     }
@@ -154,6 +158,25 @@ export default function ScholiumsPage() {
         <div className="max-w-6xl">
           <h1 className="text-3xl font-bold text-foreground mb-2">My Scholiums</h1>
           <p className="text-muted-foreground mb-8">Manage your scholiums and invite classmates to join.</p>
+
+          {/* Pending Approval Banner */}
+          {pendingScholiumName && (
+            <div className="mb-8 flex items-start gap-3 p-4 rounded-lg border border-amber-500/30 bg-amber-500/10">
+              <Clock className="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-foreground">Waiting for approval</p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Your request to join <span className="font-medium text-foreground">{pendingScholiumName}</span> is pending. A host or co-host needs to approve your request.
+                </p>
+                <button
+                  className="text-xs text-muted-foreground underline underline-offset-2 mt-2"
+                  onClick={() => setPendingScholiumName(null)}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Create and Join Scholium */}
           <div className="grid md:grid-cols-2 gap-6 mb-12">
