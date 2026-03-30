@@ -2,7 +2,7 @@
 import { createClient } from '@/lib/supabase/client'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
-export type RealtimeChangeType = 'homework' | 'subject' | 'member' | 'permissions' | 'timeslots' | 'completion'
+export type RealtimeChangeType = 'homework' | 'subject' | 'member' | 'permissions' | 'timeslots' | 'completion' | 'waiting_room'
 
 /**
  * Subscribe to real-time changes for a specific scholium
@@ -133,6 +133,25 @@ export function subscribeToScholiumChanges(
     .subscribe()
 
   channels.push(attachmentChannel)
+
+  // Subscribe to waiting room changes
+  const waitingRoomChannel = supabase
+    .channel(`scholium_${scholiumId}_waiting_room`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'waiting_room',
+        filter: `scholium_id=eq.${scholiumId}`,
+      },
+      () => {
+        onChange('waiting_room')
+      }
+    )
+    .subscribe()
+
+  channels.push(waitingRoomChannel)
 
   // Cleanup
   return () => {
