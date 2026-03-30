@@ -42,6 +42,7 @@ export default function ScholiumsPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [renewingId, setRenewingId] = useState<number | null>(null)
   const [pendingScholiumName, setPendingScholiumName] = useState<string | null>(null)
+  const [joinDialogOpen, setJoinDialogOpen] = useState(false)
 
   useEffect(() => {
     loadScholiums()
@@ -105,6 +106,7 @@ export default function ScholiumsPage() {
       router.push('/dashboard')
     } else if (result.error === 'WAITING_ROOM' && result.data) {
       setAccessId('')
+      setJoinDialogOpen(false)
       setPendingScholiumName(result.data.name)
     } else {
       setError(result.error || 'Failed to join scholium')
@@ -198,9 +200,9 @@ export default function ScholiumsPage() {
             </Dialog>
 
             {/* Join */}
-            <Dialog>
-              <DialogTrigger asChild>
-                <Card className="cursor-pointer hover:border-primary transition-colors">
+              <Dialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
+                <DialogTrigger asChild>
+                  <Card className="cursor-pointer hover:border-primary transition-colors">
                   <CardHeader>
                     <Plus className="h-8 w-8 text-primary mb-2" />
                     <CardTitle>Join Existing Scholium</CardTitle>
