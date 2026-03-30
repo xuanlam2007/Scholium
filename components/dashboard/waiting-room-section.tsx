@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Clock, Check, X, Users } from 'lucide-react'
+import { Clock, Check, X } from 'lucide-react'
 import { getWaitingRoom, approveWaitingUser, denyWaitingUser } from '@/app/actions/scholium'
 import { useToast } from '@/hooks/use-toast'
+import { createClient } from '@/lib/supabase/client'
 
 interface WaitingRoomEntry {
   id: number
@@ -37,11 +38,30 @@ export function WaitingRoomSection({ scholiumId, isHostOrCohost }: WaitingRoomSe
   }, [scholiumId])
 
   useEffect(() => {
-    if (isHostOrCohost) {
-      loadPending()
-      // Poll every 15 seconds for new requests
-      const interval = setInterval(loadPending, 15000)
-      return () => clearInterval(interval)
+    if (!isHostOrCohost) return
+
+    loadPending()
+
+    // Subscribe to realtime changes on waiting_room table
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`waiting_room_${scholiumId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'waiting_room',
+          filter: `scholium_id=eq.${scholiumId}`,
+        },
+        () => {
+          loadPending()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
     }
   }, [scholiumId, isHostOrCohost, loadPending])
 

@@ -116,6 +116,26 @@ export function subscribeToScholiumChanges(
 
   channels.push(scholiumChannel)
 
+  // Subscribe to waiting room changes
+  const waitingRoomChannel = supabase
+    .channel(`scholium_${scholiumId}_waiting_room`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'waiting_room',
+        filter: `scholium_id=eq.${scholiumId}`,
+      },
+      () => {
+        onChange('permissions')
+      }
+    )
+    .subscribe()
+
+  channels.push(waitingRoomChannel
+    )
+
   // Subscribe to attachment
   const attachmentChannel = supabase
     .channel(`scholium_${scholiumId}_attachments`)
